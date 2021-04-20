@@ -1,6 +1,9 @@
 import cv2 
-vidcap = cv2.VideoCapture('cube.mp4')
+
+vidcap = cv2.VideoCapture('cube.mp4') 
 success, image = vidcap.read()
+# image is an array of array of [R,G,B] values
+
 count = 0
 img = 0
 while success:
@@ -8,10 +11,10 @@ while success:
     name = "cube_img/frame" + str(count) + ".jpg"
     if img < 90:
         if count % 3.3 < 1:
-            cv2.imwrite(name, image)
+            cv2.imwrite(name, image)  # save frame as JPEG file
             img += 1
         count += 1
     else:
         exit(0)
-    if cv2.waitKey(10) == 27:  
+    if cv2.waitKey(10) == 27:  # exit if Escape is hit
         break
