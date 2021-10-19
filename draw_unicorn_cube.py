@@ -5,6 +5,7 @@ from pygame.locals import *
 import pygame
 from OpenGL.GL import *
 from OpenGL.GLU import *
+from initialization import position
 
 verticies = (
     (1, -1, -1),
@@ -26,6 +27,7 @@ main_verticies = (
     (4, 4, 4),
     (-4, -4, 4),
     (-4, 4, 4)
+
 )
 
 surfaces = (
@@ -53,10 +55,10 @@ edges = (
 )
 
 
-def set_vertices():
-    x_value_change = random.randrange(-10, 10)
-    y_value_change = random.randrange(-10, 10)
-    z_value_change = random.randrange(-10, 10)
+def set_vertices(x):
+    x_value_change = position[x][0] - 40
+    y_value_change = position[x][1] - 40
+    z_value_change = 30
 
     new_vertices = []
 
@@ -81,7 +83,6 @@ def Cube(verticies):
 
     for surface in surfaces:
         x = 0
-
         for vertex in surface:
             x += 1
             glColor3fv((1, 1, 1))
@@ -117,15 +118,15 @@ def main():
     display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
 
-    gluPerspective(45, (display[0] / display[1]), 0.1, 50.0)
+    gluPerspective(100, (display[0] / display[1]), 0.1, 50.0)
     # glTranslatef(5.0, 5.0, -30) x and y !!! HERE
-    glTranslatef(random.randrange(-3, 3), random.randrange(-3, 3), -40)
+    glTranslatef(-4.0, -4.0, -60)
     # glRotatef(0, 0, 0, 0)
 
     cube_dict = {}
 
-    for x in range(360):
-        cube_dict[x] = set_vertices()
+    for x in range(len(position)):
+        cube_dict[x] = set_vertices(x)
 
     while True:
         for event in pygame.event.get():
@@ -135,7 +136,8 @@ def main():
 
         # glTranslatef(0.0, 0.0, 1.0)
         # glTranslatef(0.0, 0.0, .50)
-        glRotatef(1, 0, 1, 0)
+        # glRotatef(1, 0, 1, 0)
+        glRotatef(0, 0, 0, 0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         for each_cube in cube_dict:
             Cube(cube_dict[each_cube])
