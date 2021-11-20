@@ -1,6 +1,4 @@
 import glob
-import os
-from os.path import isfile, join
 
 import numpy
 from PIL import Image
@@ -15,14 +13,14 @@ cubeQuads = ((0, 3, 6, 4), (2, 5, 6, 3), (1, 2, 5, 7), (1, 0, 4, 7), (7, 4, 6, 5
 
 
 class VoxelMap:
-    def __init__(self, n, bmap=None):
+    def __init__(self, n, bmap):
         self.n = n
         if bmap is None:
             self.bmap = [[[False for _ in range(n)] for _ in range(n)] for _ in range(n)]
         else:
             self.bmap = bmap
 
-    def drawSphere(self):
+    def draw_sphere(self):
         r = self.n // 3
         r2 = r * r
         n2 = self.n // 2
@@ -50,6 +48,7 @@ class VoxelMap:
                         glColor3fv((1, 0, 0))
                     else:
                         glColor3fv((1, 1, 0))
+                    # glColor3fv((1, 1, 1))
                     for cubeQuad in cubeQuads:
                         for cubeVertex in cubeQuad:
                             glVertex3fv([
@@ -145,86 +144,137 @@ def removeIslands(image):  # image = image in frame
 
 def get_images(imageSize, frameSize):
     imageList = []
+    i = 1
     for frame in glob.glob('images/frame*.jpg'):
         im = Image.open(frame).resize((imageSize - 2 * frameSize, imageSize - 2 * frameSize), Image.ANTIALIAS)
         makeBlackWhite(im)
         im = makeBlackFrame(im, frameSize, imageSize)
         removeIslands(im)
+        if i % 2 == 0:
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)
         imageList.append(im)
+        i+=1
     return imageList
 
 
 class Evolution:
     @staticmethod
-    def mutation(sphere, numberMutants):  # ImageB = circle, 20
-        size = (30, 30, 30)  # (30, 30, 30)
-        borderBlackPixels = {1: [], 2: [], 3: [], 4: [], 5: [], 6: []}
-        borderWhitePixels = {1: [], 2: [], 3: [], 4: [], 5: [], 6: []}
-        for i in range(size[0]):
-            for j in range(size[1]):
-                for k in range(size[2]):
-                    k = 0
+    def mutation(sphere, numberMutants):  # ImageB = sphere, 20
+        # size = (15, 15, 15)  # (30, 30, 30)
+        borderBlackPixels = {1: [], 2: [], 3: [], 4: []}
+        borderWhitePixels = {1: [], 2: [], 3: [], 4: []}
+        trial = 0
+        for i in range(30):  # -30 30
+            for j in range(30):
+                for k in range(30):
+                    m = 0
                     a = 0
-                    for d in [(-1, 0, 1), (1, 0, 1), (0, -1, 1), (0, +1, 1), (-1, 0, -1), (1, 0, -1), (0, -1, -1),
-                              (0, +1, -1)]:
+                    for d in [(-1, 0), (1, 0), (0, -1), (0, +1)]:
                         i0 = i + d[0]
                         j0 = j + d[1]
-                        k0 = k + d[2]
-                        if 0 <= i0 < size[0] and 0 <= j0 < size[1] and 0 <= k0 < size[2] and sphere[i, j, k] != sphere[
-                            i0, j0, k0]:
-                            k += 1
+                        if 0 <= i0 < 30 and 0 <= j0 < 30 and sphere[i0][j0][k] != sphere[i][j][k]: # -30 30
+                            trial += 1
+                            m += 1
                             a += d[0] + d[1] * 10
-                    if k == 2 and a == 0 :  # two pixels on opposite sides
+                    if m == 2 and a == 0:  # two voxels on opposite sides
                         continue
-                    if 1 <= k <= 3:
-                        if pxmB[i, j] == (0, 0, 0):  # black
-                            borderBlackPixels[k].append((i, j))  # black pixels surrounded by whites
+                    if 1 <= m <= 3:
+                        if sphere[i][j][k] == False:  # black
+                            borderBlackPixels[m].append((i, j, k))  # black pixels surrounded by whites
                         else:
-                            borderWhitePixels[k].append((i, j))
-        for i, j in borderBlackPixels[4]:
-            pxmB[i, j] = (255, 255, 255)  # change color if the pix is surrounded by only one color
-        for i, j in borderWhitePixels[4]:
-            pxmB[i, j] = (0, 0, 0)
-        k = 0
-        mutants = [imageB.copy() for i in range(numberMutants)]  # len(mutants) = 20
+                            borderWhitePixels[m].append((i, j, k))
+        print(trial)
+        for i, j, k in borderBlackPixels[4]:
+            sphere[i][j][k] = True  # change color if the pix is surrounded by only one color
+        for i, j, k in borderWhitePixels[4]:
+            sphere[i][j][k] = False
+        m = 0
+        mutants = [sphere.copy() for i in range(numberMutants)]  # len(mutants) = 20
         a = borderBlackPixels[1] + borderBlackPixels[2] + borderBlackPixels[3]
         # a = [(15, 25), (15, 26), (15, 27), (15, 28), (15, 29), (15, 30), ... ]
-        for i, j in random.sample(a, min(len(a), numberMutants // 2)):
+        for i, j, k in random.sample(a, min(len(a), numberMutants // 2)):
             # random 10 or len(a) items from a
             # for example [(29, 45), (24, 16), (26, 15), (45, 31), (16, 37),
             # (24, 44), (36, 44), (45, 26), (15, 31), (32, 15)]
-            mutants[k].putpixel((i, j), (255, 255, 255))  # add(replace) black to(with) white
-            k += 1
+            mutants[m][i][j][k] = True  # add(replace) black to(with) white
+            m += 1
         a = borderWhitePixels[1] + borderWhitePixels[2] + borderWhitePixels[3]
-        for i, j in random.sample(a, min(len(a), numberMutants - numberMutants // 2)):
-            mutants[k].putpixel((i, j), (0, 0, 0))
-            k += 1
+        for i, j, k in random.sample(a, min(len(a), numberMutants - numberMutants // 2)):
+            mutants[m][i][j][k] = False
+            m += 1
         return mutants  # 20 imgs of circle
+
+    @staticmethod
+    def getScore(sphere):
+        image_list = get_images(60, 1)
+        # size = imageA.size
+        # pxmA = imageA.load()
+        pxmB = sphere
+        score = 0
+        for i in range(30):  # -30 30
+            for j in range(30):
+                for k in range(30):
+                    if i <= 15 and k <= 15:
+                        pxmA = image_list[0].load()
+                    elif i >= 15 and k <= 15:
+                        pxmA = image_list[1].load()
+                    elif i <= 15 and k >= 15:
+                        pxmA = image_list[2].load()
+                    else:
+                        pxmA = image_list[3].load()
+                    # px = image_list[0].load()
+                    if pxmA[i, j] == (0, 0, 0):
+                        px = False
+                    else:
+                        px = True
+                    score += (px == pxmB[i][j][k])
+        return score  # have to change (?)
+
+    @staticmethod
+    def evaluation(sphereS):  # ImagesB = 20 img of circle
+        return [Evolution.getScore(sphere) for sphere in sphereS]
+
+    @staticmethod
+    def run(sphere, epochs, numberMutants):  # ImageA = img(binary); ImageB = circle;
+        # epochs = 1000, numberMutants = 20
+        k = epochs // 10  # 100
+        for epoch in range(epochs):
+            mutants = Evolution.mutation(sphere, numberMutants)
+            scores = Evolution.evaluation(mutants)
+            bestScoreIndex = 0
+            for scoreIndex in range(1, len(scores)):  # len(scores) = 20
+                if scores[bestScoreIndex] < scores[scoreIndex]:
+                    bestScoreIndex = scoreIndex
+            sphere = mutants[bestScoreIndex]  # the best generated circle(ImageB)
+            if (epoch + 1) % k == 0:
+                # removeIslands(imageB)
+                # imageB.save(f"2d_GA_imgs/result_epoch{epoch + 1}.jpg")
+                print(f"Epoch {epoch + 1} is done")
+        # removeIslands(imageB)
+        return sphere
 
 
 def main():
-    __imageSize = 60
+    __imageSize = 30
     __frameSize = 1
+    __epochs = 1000 # 1000 23:43 -- 0:48
     __mutants = 20
-    get_images(__imageSize, __frameSize)
-    voxels = VoxelMap(30)
-    sphere = voxels.drawSphere()
-    k = 0
-    for i in range(2):
-        for j in range(2):
-            for k in range(2):
-                print(len(sphere[i][j]))
-                k += 1
-    print(k)
-    # result = Evolution.mutation(sphere, __mutants)
+    image_list = get_images(__imageSize, __frameSize)
+    im = image_list[0].load()
+    voxels = VoxelMap(30, None)
+    sphere = voxels.draw_sphere()
+    result = Evolution.run(sphere, __epochs, __mutants)
+    #print(result)
     pygame.init()
-    display = (640, 640)
+    display = (720, 720)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
-    gluPerspective(45, (display[0] / display[1]), 0.1, 70.0)
+    gluPerspective(60, (display[0] / display[1]), 1, 256.0)
+    #gluPerspective(45, (display[0] / display[1]), 0.1, 70.0)
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glTranslatef(0.0, 0.0, -50)
 
     while True:
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -232,30 +282,10 @@ def main():
 
         glRotatef(10, 0, 1, 0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        voxels = VoxelMap(30, result)
         voxels.draw()
         pygame.display.flip()
         pygame.time.wait(10)
 
 
 main()
-
-"""if __name__ == "__main__":
-    __1filename = "images/frame0.jpg"
-    __2filename = "images/frame76.jpg"
-    __3filename = "images/frame152.jpg"
-    __4filename = "images/frame228.jpg"
-    __imageSize = 60
-    __circleRadius = __imageSize // 4
-    __frameSize = 1
-    __epochs = 1000
-    __mutants = 20
-    originalImg1 = Image.open(__1filename)
-    img = originalImg.resize((__imageSize - 2 * __frameSize, __imageSize - 2 * __frameSize), Image.ANTIALIAS)
-    makeBlackWhite(img)
-    img = makeBlackFrame(img, __frameSize, __imageSize)
-    removeIslands(img)
-    circleImg = makeCircle(__circleRadius, __imageSize)
-    img.save("original.jpg")
-    # circleImg.show()
-    result = Evolution.run(img, circleImg, __epochs, __mutants)
-result.save("result_final.jpg")"""
